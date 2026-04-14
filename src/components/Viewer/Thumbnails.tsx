@@ -24,24 +24,21 @@ export const Thumbnails: React.FC<ThumbnailsProps> = ({
       if (rendered.has(pageNum)) return;
       try {
         const page = await pdfDoc.getPage(pageNum);
-        const dpr = window.devicePixelRatio || 1;
         const viewport = page.getViewport({ scale: THUMB_SCALE });
 
-        canvas.width = Math.floor(viewport.width * dpr);
-        canvas.height = Math.floor(viewport.height * dpr);
+        // Skip DPR scaling for thumbnails — they're small, quality is fine at 1×
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
         canvas.style.width = `${Math.floor(viewport.width)}px`;
         canvas.style.height = `${Math.floor(viewport.height)}px`;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
-
         await page.render({
           canvasContext: ctx,
           canvas: null as unknown as HTMLCanvasElement,
           viewport,
-          transform,
         }).promise;
         setRendered((prev) => new Set(prev).add(pageNum));
       } catch (err) {

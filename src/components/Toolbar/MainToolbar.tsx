@@ -156,7 +156,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           onClick={onDetectFields}
           disabled={!hasPdf || detecting}
           title="Detect Fields"
-          style={{ width: 'auto', padding: '0 10px', gap: 4, display: 'flex', alignItems: 'center' }}
+          style={{ width: 'auto', padding: '0 10px', gap: 4, display: 'flex', alignItems: 'center', fontSize: 12 }}
         >
           <ScanSearch size={14} /> Detect
         </button>
@@ -165,7 +165,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           onClick={onToggleHistory}
           disabled={!hasPdf}
           title="History"
-          style={{ width: 'auto', padding: '0 10px', gap: 4, display: 'flex', alignItems: 'center' }}
+          style={{ width: 'auto', padding: '0 10px', gap: 4, display: 'flex', alignItems: 'center', fontSize: 12 }}
         >
           <History size={14} /> History
         </button>

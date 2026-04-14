@@ -11,12 +11,11 @@ interface SignaturePadProps {
 type TabMode = 'draw' | 'type';
 
 const SIGNATURE_FONTS = [
-  { label: 'Script', value: "'Brush Script MT', 'Segoe Script', 'Apple Chancery', cursive" },
-  { label: 'Elegant', value: "'Snell Roundhand', 'Edwardian Script ITC', 'Apple Chancery', cursive" },
-  { label: 'Casual', value: "'Comic Sans MS', 'Marker Felt', cursive" },
-  { label: 'Caveat', value: "'Caveat', cursive" },
-  { label: 'Dancing', value: "'Dancing Script', cursive" },
+  { label: 'Mrs Saint Delafield', value: "'Mrs Saint Delafield', cursive" },
+  { label: 'Great Vibes', value: "'Great Vibes', cursive" },
   { label: 'Sacramento', value: "'Sacramento', cursive" },
+  { label: 'Allura', value: "'Allura', cursive" },
+  { label: 'Caveat', value: "'Caveat', cursive" },
 ];
 
 export const SignaturePad: React.FC<SignaturePadProps> = ({
