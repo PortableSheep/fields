@@ -159,9 +159,9 @@ html, body, #root {
 }
 
 .thumbnail canvas {
-  width: 100%;
-  height: auto;
   display: block;
+  max-width: 100%;
+  height: auto;
   background: white;
 }
 
@@ -314,6 +314,85 @@ html, body, #root {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+/* Signature tabs */
+.signature-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0;
+}
+
+.signature-tab {
+  padding: 6px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.signature-tab:hover {
+  color: var(--text-primary);
+}
+
+.signature-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Typed signature area */
+.signature-type-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.signature-type-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 16px;
+  outline: none;
+}
+
+.signature-type-input:focus {
+  border-color: var(--accent);
+}
+
+.signature-font-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.signature-font-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.signature-font-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.signature-font-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(137, 180, 250, 0.1);
 }
 
 .btn {

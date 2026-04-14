@@ -38,7 +38,7 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
 
       const renderTask = page.render({
         canvasContext: ctx,
-        canvas,
+        canvas: null as unknown as HTMLCanvasElement,
         viewport,
       });
 

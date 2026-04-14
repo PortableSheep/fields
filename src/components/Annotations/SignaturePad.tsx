@@ -8,6 +8,16 @@ interface SignaturePadProps {
   onDeleteSaved: (id: string) => void;
 }
 
+type TabMode = 'draw' | 'type';
+
+const SIGNATURE_FONTS = [
+  { label: 'Script', value: "'Brush Script MT', 'Segoe Script', 'Apple Chancery', cursive" },
+  { label: 'Elegant', value: "'Snell Roundhand', 'Edwardian Script ITC', 'Apple Chancery', cursive" },
+  { label: 'Casual', value: "'Comic Sans MS', 'Marker Felt', cursive" },
+  { label: 'Classic', value: "'Palatino', 'Book Antiqua', 'Georgia', serif" },
+  { label: 'Formal', value: "'Times New Roman', 'Garamond', serif" },
+];
+
 export const SignaturePad: React.FC<SignaturePadProps> = ({
   onSave,
   onCancel,
@@ -15,10 +25,16 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   onDeleteSaved,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const typeCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasContent, setHasContent] = useState(false);
+  const [tab, setTab] = useState<TabMode>('draw');
+  const [typedName, setTypedName] = useState('');
+  const [selectedFont, setSelectedFont] = useState(SIGNATURE_FONTS[0].value);
 
+  // Init draw canvas
   useEffect(() => {
+    if (tab !== 'draw') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -29,7 +45,51 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-  }, []);
+  }, [tab]);
+
+  // Render typed signature preview
+  useEffect(() => {
+    if (tab !== 'type') return;
+    const canvas = typeCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = 450 * dpr;
+    canvas.height = 150 * dpr;
+    canvas.style.width = '450px';
+    canvas.style.height = '150px';
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 450, 150);
+
+    if (typedName.trim()) {
+      // Size the font to fit the canvas width with padding
+      let fontSize = 64;
+      ctx.font = `${fontSize}px ${selectedFont}`;
+      let measured = ctx.measureText(typedName);
+      while (measured.width > 420 && fontSize > 16) {
+        fontSize -= 2;
+        ctx.font = `${fontSize}px ${selectedFont}`;
+        measured = ctx.measureText(typedName);
+      }
+
+      ctx.fillStyle = '#1a1a2e';
+      ctx.textBaseline = 'middle';
+      const textX = (450 - measured.width) / 2;
+      ctx.fillText(typedName, textX, 75);
+
+      // Subtle underline
+      ctx.strokeStyle = '#cccccc';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(30, 110);
+      ctx.lineTo(420, 110);
+      ctx.stroke();
+    }
+  }, [tab, typedName, selectedFont]);
 
   const getPos = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current!;
@@ -70,22 +130,54 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
   }, []);
 
   const handleClear = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
-    setHasContent(false);
-  }, []);
+    if (tab === 'draw') {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      setHasContent(false);
+    } else {
+      setTypedName('');
+    }
+  }, [tab]);
 
   const handleSave = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !hasContent) return;
-    onSave(canvas.toDataURL('image/png'));
-  }, [hasContent, onSave]);
+    if (tab === 'draw') {
+      const canvas = canvasRef.current;
+      if (!canvas || !hasContent) return;
+      onSave(canvas.toDataURL('image/png'));
+    } else {
+      const canvas = typeCanvasRef.current;
+      if (!canvas || !typedName.trim()) return;
+      // Re-render at 1x for clean output
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = 450;
+      outCanvas.height = 150;
+      const ctx = outCanvas.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 450, 150);
+
+      let fontSize = 64;
+      ctx.font = `${fontSize}px ${selectedFont}`;
+      let measured = ctx.measureText(typedName);
+      while (measured.width > 420 && fontSize > 16) {
+        fontSize -= 2;
+        ctx.font = `${fontSize}px ${selectedFont}`;
+        measured = ctx.measureText(typedName);
+      }
+      ctx.fillStyle = '#1a1a2e';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(typedName, (450 - measured.width) / 2, 75);
+
+      onSave(outCanvas.toDataURL('image/png'));
+    }
+  }, [tab, hasContent, typedName, selectedFont, onSave]);
+
+  const canApply = tab === 'draw' ? hasContent : typedName.trim().length > 0;
 
   return (
     <div className="signature-overlay" onClick={onCancel}>
@@ -93,17 +185,65 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
         className="signature-pad-container"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3>Draw your signature</h3>
-        <canvas
-          ref={canvasRef}
-          className="signature-canvas"
-          width={450}
-          height={150}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        />
+        <h3>Add Signature</h3>
+
+        {/* Tab switcher */}
+        <div className="signature-tabs">
+          <button
+            className={`signature-tab ${tab === 'draw' ? 'active' : ''}`}
+            onClick={() => setTab('draw')}
+          >
+            ✏️ Draw
+          </button>
+          <button
+            className={`signature-tab ${tab === 'type' ? 'active' : ''}`}
+            onClick={() => setTab('type')}
+          >
+            ⌨️ Type
+          </button>
+        </div>
+
+        {tab === 'draw' ? (
+          <canvas
+            ref={canvasRef}
+            className="signature-canvas"
+            width={450}
+            height={150}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          />
+        ) : (
+          <div className="signature-type-area">
+            <input
+              type="text"
+              className="signature-type-input"
+              placeholder="Type your name..."
+              value={typedName}
+              onChange={(e) => setTypedName(e.target.value)}
+              autoFocus
+            />
+            <div className="signature-font-picker">
+              {SIGNATURE_FONTS.map((font) => (
+                <button
+                  key={font.label}
+                  className={`signature-font-btn ${selectedFont === font.value ? 'active' : ''}`}
+                  onClick={() => setSelectedFont(font.value)}
+                  style={{ fontFamily: font.value }}
+                >
+                  {font.label}
+                </button>
+              ))}
+            </div>
+            <canvas
+              ref={typeCanvasRef}
+              className="signature-canvas"
+              style={{ cursor: 'default' }}
+            />
+          </div>
+        )}
+
         <div className="signature-actions">
           <button className="btn btn-secondary" onClick={handleClear}>
             Clear
@@ -114,7 +254,7 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({
           <button
             className="btn btn-primary"
             onClick={handleSave}
-            disabled={!hasContent}
+            disabled={!canApply}
           >
             Apply Signature
           </button>

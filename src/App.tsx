@@ -98,9 +98,9 @@ function App() {
     if (pdf.pdfDoc) {
       const count = await fields.detectFields(pdf.pdfDoc);
       if (count > 0) {
-        showNotification(`Found ${count} field${count !== 1 ? 's' : ''}. Click to accept, right-click to dismiss.`);
+        showNotification(`Found ${count} field${count !== 1 ? 's' : ''} across ${pdf.totalPages} page${pdf.totalPages !== 1 ? 's' : ''}. Click to accept, right-click to dismiss.`);
       } else {
-        showNotification('No fields detected in this PDF.');
+        showNotification('No fields detected. The PDF may be image-based or use non-standard formatting. Check DevTools console for details.');
       }
     }
   }, [pdf.pdfDoc, fields, showNotification]);
@@ -216,6 +216,22 @@ function App() {
       window.removeEventListener('drop', handleDrop);
     };
   }, [pdf, fields]);
+
+  // Pinch-to-zoom (trackpad pinch reports as wheel with ctrlKey)
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const delta = -e.deltaY * 0.01;
+      pdf.setScale((s: number) => Math.max(0.25, Math.min(5.0, s + delta)));
+    };
+
+    const viewer = document.querySelector('.viewer');
+    if (viewer) {
+      viewer.addEventListener('wheel', handleWheel as EventListener, { passive: false });
+      return () => viewer.removeEventListener('wheel', handleWheel as EventListener);
+    }
+  }, [pdf]);
 
   const hasPdf = !!pdf.pdfDoc;
 

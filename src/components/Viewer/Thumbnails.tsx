@@ -8,6 +8,8 @@ interface ThumbnailsProps {
   onPageSelect: (page: number) => void;
 }
 
+const THUMB_SCALE = 0.3;
+
 export const Thumbnails: React.FC<ThumbnailsProps> = ({
   pdfDoc,
   totalPages,
@@ -22,12 +24,23 @@ export const Thumbnails: React.FC<ThumbnailsProps> = ({
       if (rendered.has(pageNum)) return;
       try {
         const page = await pdfDoc.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 0.3 });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        const dpr = window.devicePixelRatio || 1;
+        const renderViewport = page.getViewport({ scale: THUMB_SCALE * dpr });
+        const displayViewport = page.getViewport({ scale: THUMB_SCALE });
+
+        canvas.width = renderViewport.width;
+        canvas.height = renderViewport.height;
+        canvas.style.width = `${displayViewport.width}px`;
+        canvas.style.height = `${displayViewport.height}px`;
+
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        await page.render({ canvasContext: ctx, canvas, viewport }).promise;
+
+        await page.render({
+          canvasContext: ctx,
+          canvas: null as unknown as HTMLCanvasElement,
+          viewport: renderViewport,
+        }).promise;
         setRendered((prev) => new Set(prev).add(pageNum));
       } catch (err) {
         console.error(`Thumbnail render error page ${pageNum}:`, err);

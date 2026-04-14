@@ -13,12 +13,16 @@ export function useFieldDetection() {
     let fieldId = 0;
 
     try {
+      console.group('[Fields] Detection Results');
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         const page = await pdfDoc.getPage(i);
+        const pageFieldsBefore = fields.length;
 
         // 1. Detect AcroForm fields via pdf.js annotations
         const annotations = await page.getAnnotations();
         const viewport = page.getViewport({ scale: 1.0 });
+
+        const widgetCount = annotations.filter((a: any) => a.subtype === 'Widget').length;
 
         for (const ann of annotations) {
           if (ann.subtype === 'Widget' && ann.rect) {
@@ -51,6 +55,7 @@ export function useFieldDetection() {
 
         // 2. Run heuristic detection
         const textContent = await page.getTextContent();
+        const textItems = (textContent as any).items.filter((it: any) => 'str' in it && it.str?.trim());
         const heuristicFields = detectHeuristicFields(
           textContent as any,
           viewport,
@@ -59,9 +64,19 @@ export function useFieldDetection() {
         );
         fieldId += heuristicFields.length;
         fields.push(...heuristicFields);
+
+        const pageFieldsFound = fields.length - pageFieldsBefore;
+        console.log(
+          `Page ${i}: ${textItems.length} text items, ${widgetCount} AcroForm widgets, ${heuristicFields.length} heuristic → ${pageFieldsFound} total fields`
+        );
+        if (textItems.length === 0) {
+          console.warn(`  ⚠ Page ${i} has no extractable text (may be a scanned image)`);
+        }
       }
+      console.groupEnd();
     } catch (err) {
       console.error('Field detection error:', err);
+      console.groupEnd();
     }
 
     setDetectedFields(fields);
