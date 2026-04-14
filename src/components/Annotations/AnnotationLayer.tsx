@@ -78,42 +78,41 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       e.stopPropagation();
       onAnnotationSelect(id);
 
-      if (activeTool === 'select' || !activeTool) {
-        const ann = annotations.find((a) => a.id === id);
-        if (!ann) return;
+      // Always allow dragging existing annotations, regardless of active tool
+      const ann = annotations.find((a) => a.id === id);
+      if (!ann) return;
 
-        dragStateRef.current = {
-          id,
-          startX: e.clientX,
-          startY: e.clientY,
-          origX: ann.rect.x,
-          origY: ann.rect.y,
-        };
+      dragStateRef.current = {
+        id,
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: ann.rect.x,
+        origY: ann.rect.y,
+      };
 
-        const handleMove = (ev: MouseEvent) => {
-          if (!dragStateRef.current) return;
-          const dx = (ev.clientX - dragStateRef.current.startX) / scale;
-          const dy = (ev.clientY - dragStateRef.current.startY) / scale;
-          onAnnotationUpdate(dragStateRef.current.id, {
-            rect: {
-              ...ann.rect,
-              x: dragStateRef.current.origX + dx,
-              y: dragStateRef.current.origY + dy,
-            },
-          });
-        };
+      const handleMove = (ev: MouseEvent) => {
+        if (!dragStateRef.current) return;
+        const dx = (ev.clientX - dragStateRef.current.startX) / scale;
+        const dy = (ev.clientY - dragStateRef.current.startY) / scale;
+        onAnnotationUpdate(dragStateRef.current.id, {
+          rect: {
+            ...ann.rect,
+            x: dragStateRef.current.origX + dx,
+            y: dragStateRef.current.origY + dy,
+          },
+        });
+      };
 
-        const handleUp = () => {
-          dragStateRef.current = null;
-          window.removeEventListener('mousemove', handleMove);
-          window.removeEventListener('mouseup', handleUp);
-        };
+      const handleUp = () => {
+        dragStateRef.current = null;
+        window.removeEventListener('mousemove', handleMove);
+        window.removeEventListener('mouseup', handleUp);
+      };
 
-        window.addEventListener('mousemove', handleMove);
-        window.addEventListener('mouseup', handleUp);
-      }
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleUp);
     },
-    [activeTool, annotations, scale, onAnnotationSelect, onAnnotationUpdate]
+    [annotations, scale, onAnnotationSelect, onAnnotationUpdate]
   );
 
   const handleFieldClick = useCallback(
