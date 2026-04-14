@@ -207,6 +207,23 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           </select>
         </div>
       )}
+
+      {/* Checkbox border toggle */}
+      {selected && selected.type === 'checkbox' && (
+        <>
+          <div className="toolbar-separator" />
+          <div className="style-controls">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={(selected as any).showBorder ?? true}
+                onChange={(e) => onUpdateSelected({ showBorder: e.target.checked } as any)}
+              />
+              Border
+            </label>
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -70,6 +70,17 @@ export async function savePdf(
         }
         case 'checkbox': {
           const cbAnn = ann as CheckboxAnnotation;
+          if (cbAnn.showBorder) {
+            page.drawRectangle({
+              x: ann.rect.x,
+              y: pdfY,
+              width: ann.rect.width,
+              height: ann.rect.height,
+              borderColor: rgb(0.4, 0.4, 0.4),
+              borderWidth: 1,
+              color: undefined,
+            });
+          }
           if (!cbAnn.checked) continue;
           page.drawText('✓', {
             x: ann.rect.x + 2,

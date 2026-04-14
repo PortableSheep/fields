@@ -108,6 +108,8 @@ function App() {
   const handleAnnotationAdd = useCallback(
     (type: Exclude<ToolType, 'select' | null>, pageIndex: number, rect: Rect) => {
       ann.addAnnotation(type as AnnotationType, pageIndex, rect);
+      // Auto-switch to pointer after placing, so next click moves instead of creating another
+      setActiveTool(null);
     },
     [ann]
   );
@@ -129,6 +131,7 @@ function App() {
       } as any);
       setShowSignaturePad(false);
       sigPlacementRef.current = null;
+      setActiveTool(null);
       // Persist for reuse
       saveSignature(dataUrl).then(() =>
         loadSavedSignatures().then(setSavedSignatures)

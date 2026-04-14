@@ -34,12 +34,12 @@ export const CheckboxAnnotation: React.FC<CheckboxAnnotationProps> = ({
         onClick={handleClick}
         style={{
           fontSize: Math.min(annotation.rect.width, annotation.rect.height) * scale * 0.7,
-          color: annotation.checked ? '#000' : '#ccc',
-          border: `${1 * scale}px solid #666`,
+          color: annotation.checked ? '#000' : 'transparent',
+          border: annotation.showBorder ? `${1 * scale}px solid #666` : 'none',
           borderRadius: 2 * scale,
         }}
       >
-        {annotation.checked ? '✓' : ''}
+        {annotation.checked ? '✓' : '\u00A0'}
       </div>
       {isSelected && (
         <>

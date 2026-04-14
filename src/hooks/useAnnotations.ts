@@ -42,6 +42,7 @@ export function useAnnotations() {
               ...base,
               type: 'checkbox',
               checked: false,
+              showBorder: true,
               ...extra,
             } as Annotation;
             break;

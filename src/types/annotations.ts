@@ -30,6 +30,7 @@ export interface TextAnnotation extends BaseAnnotation {
 export interface CheckboxAnnotation extends BaseAnnotation {
   type: 'checkbox';
   checked: boolean;
+  showBorder: boolean;
 }
 
 export interface DateAnnotation extends BaseAnnotation {
