@@ -5,6 +5,15 @@ import { usePdfDocument } from './hooks/usePdfDocument';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useFieldDetection } from './hooks/useFieldDetection';
 import { savePdf } from './lib/pdf-saver';
+import {
+  loadSavedSignatures,
+  saveSignature,
+  deleteSavedSignature,
+  loadRecentFiles,
+  addRecentFile,
+  type SavedSignature,
+  type RecentFile,
+} from './lib/storage';
 import { MainToolbar } from './components/Toolbar/MainToolbar';
 import { PdfViewer } from './components/Viewer/PdfViewer';
 import { Thumbnails } from './components/Viewer/Thumbnails';
@@ -21,6 +30,27 @@ function App() {
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const sigPlacementRef = useRef<{ pageIndex: number; rect: Rect } | null>(null);
   const [filePath, setFilePath] = useState<string | null>(null);
+  const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>([]);
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
+
+  // Load saved data on mount
+  useEffect(() => {
+    loadSavedSignatures().then(setSavedSignatures).catch(() => {});
+    loadRecentFiles().then(setRecentFiles).catch(() => {});
+  }, []);
+
+  const openPdfByPath = useCallback(async (path: string) => {
+    try {
+      const bytes = await readFile(path);
+      const name = path.split('/').pop() || path.split('\\').pop() || 'document.pdf';
+      await pdf.loadPdf(new Uint8Array(bytes), name);
+      setFilePath(path);
+      fields.clearFields();
+      addRecentFile(path, name).then(() => loadRecentFiles().then(setRecentFiles));
+    } catch (err) {
+      console.error('Failed to open file:', err);
+    }
+  }, [pdf, fields]);
 
   const handleOpenFile = useCallback(async () => {
     try {
@@ -31,11 +61,7 @@ function App() {
       if (!selected) return;
 
       const path = typeof selected === 'string' ? selected : (selected as any).path;
-      const bytes = await readFile(path as string);
-      const name = (path as string).split('/').pop() || (path as string).split('\\').pop() || 'document.pdf';
-      await pdf.loadPdf(new Uint8Array(bytes), name);
-      setFilePath(path);
-      fields.clearFields();
+      await openPdfByPath(path as string);
     } catch (err) {
       console.error('Failed to open file:', err);
     }
@@ -90,9 +116,19 @@ function App() {
       } as any);
       setShowSignaturePad(false);
       sigPlacementRef.current = null;
+      // Persist for reuse
+      saveSignature(dataUrl).then(() =>
+        loadSavedSignatures().then(setSavedSignatures)
+      );
     },
     [ann]
   );
+
+  const handleDeleteSavedSignature = useCallback(async (id: string) => {
+    await deleteSavedSignature(id);
+    const updated = await loadSavedSignatures();
+    setSavedSignatures(updated);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -226,7 +262,7 @@ function App() {
           onOpenSignaturePad={handleOpenSignaturePad}
         />
       ) : (
-        <EmptyState onOpenFile={handleOpenFile} />
+        <EmptyState onOpenFile={handleOpenFile} recentFiles={recentFiles} onOpenRecent={openPdfByPath} />
       )}
 
       <div className="statusbar">
@@ -249,6 +285,8 @@ function App() {
             setShowSignaturePad(false);
             sigPlacementRef.current = null;
           }}
+          savedSignatures={savedSignatures}
+          onDeleteSaved={handleDeleteSavedSignature}
         />
       )}
     </div>

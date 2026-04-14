@@ -1,11 +1,19 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import type { SavedSignature } from '../../lib/storage';
 
 interface SignaturePadProps {
   onSave: (dataUrl: string) => void;
   onCancel: () => void;
+  savedSignatures: SavedSignature[];
+  onDeleteSaved: (id: string) => void;
 }
 
-export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) => {
+export const SignaturePad: React.FC<SignaturePadProps> = ({
+  onSave,
+  onCancel,
+  savedSignatures,
+  onDeleteSaved,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasContent, setHasContent] = useState(false);
@@ -111,6 +119,63 @@ export const SignaturePad: React.FC<SignaturePadProps> = ({ onSave, onCancel }) 
             Apply Signature
           </button>
         </div>
+
+        {savedSignatures.length > 0 && (
+          <div>
+            <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
+              Saved Signatures
+            </h4>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {savedSignatures.map((sig) => (
+                <div
+                  key={sig.id}
+                  style={{
+                    position: 'relative',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 6,
+                    padding: 4,
+                    cursor: 'pointer',
+                    background: 'white',
+                  }}
+                  onClick={() => onSave(sig.dataUrl)}
+                  title={`Use ${sig.label}`}
+                >
+                  <img
+                    src={sig.dataUrl}
+                    alt={sig.label}
+                    style={{ height: 40, width: 'auto', display: 'block' }}
+                    draggable={false}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteSaved(sig.id);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: -6,
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: 'var(--danger)',
+                      color: '#fff',
+                      fontSize: 10,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    title="Delete saved signature"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
