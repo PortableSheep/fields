@@ -78,9 +78,10 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       e.stopPropagation();
       onAnnotationSelect(id);
 
-      // Always allow dragging existing annotations, regardless of active tool
       const ann = annotations.find((a) => a.id === id);
       if (!ann) return;
+
+      let didMove = false;
 
       dragStateRef.current = {
         id,
@@ -94,6 +95,7 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         if (!dragStateRef.current) return;
         const dx = (ev.clientX - dragStateRef.current.startX) / scale;
         const dy = (ev.clientY - dragStateRef.current.startY) / scale;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) didMove = true;
         onAnnotationUpdate(dragStateRef.current.id, {
           rect: {
             ...ann.rect,
@@ -107,6 +109,16 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         dragStateRef.current = null;
         window.removeEventListener('mousemove', handleMove);
         window.removeEventListener('mouseup', handleUp);
+
+        if (didMove) {
+          // Suppress the click that follows mouseup so annotations
+          // don't toggle/activate when the user was dragging.
+          const suppress = (ev: MouseEvent) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+          };
+          window.addEventListener('click', suppress, { capture: true, once: true });
+        }
       };
 
       window.addEventListener('mousemove', handleMove);

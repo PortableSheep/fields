@@ -18,12 +18,16 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
+  const renderGenRef = useRef(0);
 
   const render = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Cancel any in-progress render before starting a new one
+    // Increment generation so stale renders (from StrictMode re-mount
+    // or rapid prop changes) bail out after the async getPage() call.
+    const gen = ++renderGenRef.current;
+
     if (renderTaskRef.current) {
       renderTaskRef.current.cancel();
       renderTaskRef.current = null;
@@ -31,10 +35,13 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
 
     try {
       const page = await pdfDoc.getPage(pageNumber);
+
+      // Bail if a newer render was queued while we awaited
+      if (gen !== renderGenRef.current) return;
+
       const dpr = window.devicePixelRatio || 1;
       const viewport = page.getViewport({ scale });
 
-      // Size canvas buffer at DPR resolution, display at CSS size
       canvas.width = Math.floor(viewport.width * dpr);
       canvas.height = Math.floor(viewport.height * dpr);
       canvas.style.width = `${Math.floor(viewport.width)}px`;
@@ -43,7 +50,6 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Use transform parameter for DPR scaling (canonical pdf.js approach)
       const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
 
       const renderTask = page.render({
@@ -70,6 +76,8 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
   useEffect(() => {
     render();
     return () => {
+      // Bump generation so any in-flight render bails after its await
+      renderGenRef.current++;
       if (renderTaskRef.current) {
         renderTaskRef.current.cancel();
         renderTaskRef.current = null;
