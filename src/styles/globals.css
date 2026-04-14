@@ -213,11 +213,14 @@ html, body, #root {
   position: absolute;
   pointer-events: auto;
   cursor: move;
+  border: 1px dashed rgba(137, 180, 250, 0.45);
+  background: rgba(137, 180, 250, 0.04);
 }
 
 .annotation-item.selected {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+  border-color: transparent;
 }
 
 .annotation-item .resize-handle {
@@ -581,4 +584,122 @@ html, body, #root {
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(-50%) translateY(10px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* History panel */
+.history-panel {
+  position: fixed;
+  top: var(--toolbar-height);
+  right: 0;
+  bottom: var(--statusbar-height);
+  width: 280px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  z-index: 500;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.history-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.history-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.history-clear-btn,
+.history-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.history-clear-btn:hover {
+  color: var(--danger);
+  background: var(--bg-hover);
+}
+
+.history-close-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.history-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
+}
+
+.history-item:hover {
+  background: var(--bg-hover);
+}
+
+.history-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-label {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.history-restore-btn {
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.history-restore-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }

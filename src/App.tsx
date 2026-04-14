@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { open, save, ask } from '@tauri-apps/plugin-dialog';
 import { readFile, writeFile } from '@tauri-apps/plugin-fs';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { usePdfDocument } from './hooks/usePdfDocument';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useFieldDetection } from './hooks/useFieldDetection';
+import { useHistory } from './hooks/useHistory';
 import { savePdf } from './lib/pdf-saver';
 import {
   loadSavedSignatures,
@@ -19,13 +21,16 @@ import { PdfViewer } from './components/Viewer/PdfViewer';
 import { Thumbnails } from './components/Viewer/Thumbnails';
 import { EmptyState } from './components/common/EmptyState';
 import { SignaturePad } from './components/Annotations/SignaturePad';
+import { HistoryPanel } from './components/History/HistoryPanel';
 import type { ToolType, AnnotationType, Rect } from './types/annotations';
+import type { Snapshot } from './lib/history';
 import './styles/globals.css';
 
 function App() {
   const pdf = usePdfDocument();
   const ann = useAnnotations();
   const fields = useFieldDetection();
+  const history = useHistory();
   const [activeTool, setActiveTool] = useState<ToolType>(null);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const sigPlacementRef = useRef<{ pageIndex: number; rect: Rect } | null>(null);
@@ -34,6 +39,8 @@ function App() {
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
   const notifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showNotification = useCallback((msg: string, durationMs = 4000) => {
     if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
@@ -47,21 +54,64 @@ function App() {
     loadRecentFiles().then(setRecentFiles).catch(() => {});
   }, []);
 
+  // Dirty check — returns true if safe to proceed, false if user cancelled
+  const confirmDiscardIfDirty = useCallback(async (): Promise<boolean> => {
+    if (!ann.isDirty) return true;
+    const answer = await ask('You have unsaved changes. Do you want to save before continuing?', {
+      title: 'Unsaved Changes',
+      kind: 'warning',
+      okLabel: 'Save',
+      cancelLabel: 'Discard',
+    });
+    if (answer) {
+      // User chose "Save" — trigger save flow
+      if (pdf.pdfBytes) {
+        const savePath = await save({
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+          defaultPath: filePath || undefined,
+        });
+        if (savePath) {
+          const resultBytes = await savePdf(pdf.pdfBytes, ann.annotations, false);
+          await writeFile(savePath, resultBytes);
+          ann.markClean();
+        } else {
+          // User cancelled the save dialog — abort the whole operation
+          return false;
+        }
+      }
+    }
+    // answer=false means "Discard" — proceed without saving
+    return true;
+  }, [ann, pdf.pdfBytes, filePath]);
+
   const openPdfByPath = useCallback(async (path: string) => {
     try {
+      if (!(await confirmDiscardIfDirty())) return;
+
+      // Snapshot current state before switching files
+      if (filePath && ann.annotations.length > 0) {
+        await history.addSnapshot(filePath, ann.annotations, 'Before opening another file');
+      }
+
       const bytes = await readFile(path);
       const name = path.split('/').pop() || path.split('\\').pop() || 'document.pdf';
       await pdf.loadPdf(new Uint8Array(bytes), name);
       setFilePath(path);
       fields.clearFields();
+      ann.markClean();
       addRecentFile(path, name).then(() => loadRecentFiles().then(setRecentFiles));
+
+      // Load history for the new file
+      await history.loadHistory(path);
     } catch (err) {
       console.error('Failed to open file:', err);
     }
-  }, [pdf, fields]);
+  }, [pdf, fields, ann, history, filePath, confirmDiscardIfDirty]);
 
   const handleOpenFile = useCallback(async () => {
     try {
+      if (!(await confirmDiscardIfDirty())) return;
+
       const selected = await open({
         multiple: false,
         filters: [{ name: 'PDF', extensions: ['pdf'] }],
@@ -69,11 +119,23 @@ function App() {
       if (!selected) return;
 
       const path = typeof selected === 'string' ? selected : (selected as any).path;
-      await openPdfByPath(path as string);
+      // Snapshot current state before switching files
+      if (filePath && ann.annotations.length > 0) {
+        await history.addSnapshot(filePath, ann.annotations, 'Before opening another file');
+      }
+
+      const bytes = await readFile(path as string);
+      const name = (path as string).split('/').pop() || (path as string).split('\\').pop() || 'document.pdf';
+      await pdf.loadPdf(new Uint8Array(bytes), name);
+      setFilePath(path as string);
+      fields.clearFields();
+      ann.markClean();
+      addRecentFile(path as string, name).then(() => loadRecentFiles().then(setRecentFiles));
+      await history.loadHistory(path as string);
     } catch (err) {
       console.error('Failed to open file:', err);
     }
-  }, [pdf, fields]);
+  }, [pdf, fields, ann, history, filePath, confirmDiscardIfDirty]);
 
   const handleSave = useCallback(
     async (flatten: boolean) => {
@@ -87,11 +149,17 @@ function App() {
 
         const resultBytes = await savePdf(pdf.pdfBytes, ann.annotations, flatten);
         await writeFile(savePath, resultBytes);
+        ann.markClean();
+
+        // Snapshot on save
+        if (filePath) {
+          await history.addSnapshot(filePath, ann.annotations, 'Manual save');
+        }
       } catch (err) {
         console.error('Failed to save:', err);
       }
     },
-    [pdf.pdfBytes, ann.annotations, filePath]
+    [pdf.pdfBytes, ann, filePath, history]
   );
 
   const handleDetectFields = useCallback(async () => {
@@ -195,6 +263,77 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleOpenFile, handleSave, ann, pdf, activeTool]);
 
+  // Close guard — intercept window close if dirty
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    const unlisten = appWindow.onCloseRequested(async (event) => {
+      if (!ann.isDirty) return;
+
+      event.preventDefault();
+      const answer = await ask('You have unsaved changes. Do you want to save before closing?', {
+        title: 'Unsaved Changes',
+        kind: 'warning',
+        okLabel: 'Save',
+        cancelLabel: 'Close Without Saving',
+      });
+
+      if (answer) {
+        // Save first
+        if (pdf.pdfBytes) {
+          const savePath = await save({
+            filters: [{ name: 'PDF', extensions: ['pdf'] }],
+            defaultPath: filePath || undefined,
+          });
+          if (savePath) {
+            const resultBytes = await savePdf(pdf.pdfBytes, ann.annotations, false);
+            await writeFile(savePath, resultBytes);
+          } else {
+            return; // User cancelled save dialog — stay open
+          }
+        }
+      }
+
+      // Snapshot before closing
+      if (filePath && ann.annotations.length > 0) {
+        await history.addSnapshot(filePath, ann.annotations, 'Before close');
+      }
+
+      await appWindow.destroy();
+    });
+
+    return () => { unlisten.then((fn) => fn()); };
+  }, [ann, pdf.pdfBytes, filePath, history]);
+
+  // Auto-snapshot — debounced 5s after last annotation change
+  useEffect(() => {
+    if (!filePath || !ann.isDirty || ann.annotations.length === 0) return;
+
+    if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current);
+    snapshotTimerRef.current = setTimeout(() => {
+      history.addSnapshot(filePath, ann.annotations).catch(() => {});
+    }, 5000);
+
+    return () => {
+      if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current);
+    };
+  }, [ann.annotations, ann.isDirty, filePath, history]);
+
+  // Restore snapshot handler
+  const handleRestoreSnapshot = useCallback(
+    (snapshot: Snapshot) => {
+      ann.replaceAnnotations(snapshot.annotations);
+      showNotification(`Restored snapshot from ${new Date(snapshot.timestamp).toLocaleString()}`);
+    },
+    [ann, showNotification]
+  );
+
+  const handleClearHistory = useCallback(() => {
+    if (filePath) {
+      history.clearHistory(filePath);
+      showNotification('History cleared');
+    }
+  }, [filePath, history, showNotification]);
+
   // Drag and drop
   useEffect(() => {
     const handleDragOver = (e: DragEvent) => {
@@ -209,9 +348,17 @@ function App() {
       if (!files || files.length === 0) return;
       const file = files[0];
       if (!file.name.toLowerCase().endsWith('.pdf')) return;
+
+      if (!(await confirmDiscardIfDirty())) return;
+
+      if (filePath && ann.annotations.length > 0) {
+        await history.addSnapshot(filePath, ann.annotations, 'Before drag-drop open');
+      }
+
       const bytes = new Uint8Array(await file.arrayBuffer());
       await pdf.loadPdf(bytes, file.name);
       fields.clearFields();
+      ann.markClean();
     };
 
     window.addEventListener('dragover', handleDragOver);
@@ -220,7 +367,7 @@ function App() {
       window.removeEventListener('dragover', handleDragOver);
       window.removeEventListener('drop', handleDrop);
     };
-  }, [pdf, fields]);
+  }, [pdf, fields, ann, history, filePath, confirmDiscardIfDirty]);
 
   // Pinch-to-zoom (trackpad pinch reports as wheel with ctrlKey)
   useEffect(() => {
@@ -250,10 +397,12 @@ function App() {
         onUndo={ann.undo}
         onRedo={ann.redo}
         onDetectFields={handleDetectFields}
+        onToggleHistory={() => setShowHistory((v) => !v)}
         canUndo={ann.canUndo}
         canRedo={ann.canRedo}
         hasPdf={hasPdf}
         detecting={fields.detecting}
+        historyOpen={showHistory}
         scale={pdf.scale}
         onZoomIn={pdf.zoomIn}
         onZoomOut={pdf.zoomOut}
@@ -302,7 +451,7 @@ function App() {
       <div className="statusbar">
         <span>
           {hasPdf
-            ? `${pdf.fileName} — Page ${pdf.currentPage} of ${pdf.totalPages}`
+            ? `${pdf.fileName}${ann.isDirty ? ' •' : ''} — Page ${pdf.currentPage} of ${pdf.totalPages}`
             : 'No file loaded'}
         </span>
         <span>
@@ -311,6 +460,16 @@ function App() {
             : ''}
         </span>
       </div>
+
+      {showHistory && hasPdf && (
+        <HistoryPanel
+          snapshots={history.snapshots}
+          loading={history.loading}
+          onRestore={handleRestoreSnapshot}
+          onClear={handleClearHistory}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
 
       {showSignaturePad && (
         <SignaturePad

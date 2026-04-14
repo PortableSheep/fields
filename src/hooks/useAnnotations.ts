@@ -10,12 +10,16 @@ function generateId(): string {
 export function useAnnotations() {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
   const undoStackRef = useRef<Annotation[][]>([]);
   const redoStackRef = useRef<Annotation[][]>([]);
+
+  const markClean = useCallback(() => setIsDirty(false), []);
 
   const pushUndo = useCallback((current: Annotation[]) => {
     undoStackRef.current.push(JSON.parse(JSON.stringify(current)));
     redoStackRef.current = [];
+    setIsDirty(true);
   }, []);
 
   const addAnnotation = useCallback(
@@ -124,6 +128,17 @@ export function useAnnotations() {
     setSelectedId(null);
   }, []);
 
+  const replaceAnnotations = useCallback(
+    (newAnnotations: Annotation[]) => {
+      setAnnotations((prev) => {
+        pushUndo(prev);
+        return JSON.parse(JSON.stringify(newAnnotations));
+      });
+      setSelectedId(null);
+    },
+    [pushUndo]
+  );
+
   const canUndo = undoStackRef.current.length > 0;
   const canRedo = redoStackRef.current.length > 0;
 
@@ -133,11 +148,14 @@ export function useAnnotations() {
     annotations,
     selectedId,
     selected,
+    isDirty,
     setSelectedId,
     addAnnotation,
     updateAnnotation,
     deleteAnnotation,
     deleteSelected,
+    replaceAnnotations,
+    markClean,
     undo,
     redo,
     canUndo,

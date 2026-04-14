@@ -9,10 +9,12 @@ interface MainToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onDetectFields: () => void;
+  onToggleHistory: () => void;
   canUndo: boolean;
   canRedo: boolean;
   hasPdf: boolean;
   detecting: boolean;
+  historyOpen: boolean;
   scale: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -29,10 +31,12 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
   onUndo,
   onRedo,
   onDetectFields,
+  onToggleHistory,
   canUndo,
   canRedo,
   hasPdf,
   detecting,
+  historyOpen,
   scale,
   onZoomIn,
   onZoomOut,
@@ -138,6 +142,15 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           style={{ fontSize: 13, width: 'auto', padding: '0 10px' }}
         >
           {detecting ? '⏳' : '🔎'} Detect
+        </button>
+        <button
+          className={`toolbar-btn ${historyOpen ? 'active' : ''}`}
+          onClick={onToggleHistory}
+          disabled={!hasPdf}
+          title="History"
+          style={{ fontSize: 13, width: 'auto', padding: '0 10px' }}
+        >
+          🕒 History
         </button>
       </div>
 
