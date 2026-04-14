@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 interface PageCanvasProps {
   pdfDoc: PDFDocumentProxy;
@@ -17,17 +17,26 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
   onPageRendered,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderTaskRef = useRef<RenderTask | null>(null);
 
   const render = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Cancel any in-progress render before starting a new one
+    if (renderTaskRef.current) {
+      renderTaskRef.current.cancel();
+      renderTaskRef.current = null;
+    }
+
     try {
       const page = await pdfDoc.getPage(pageNumber);
+      const dpr = window.devicePixelRatio || 1;
       const viewport = page.getViewport({ scale });
+      const renderViewport = page.getViewport({ scale: scale * dpr });
 
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      canvas.width = renderViewport.width;
+      canvas.height = renderViewport.height;
       canvas.style.width = `${viewport.width}px`;
       canvas.style.height = `${viewport.height}px`;
 
@@ -36,11 +45,13 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
 
       const renderTask = page.render({
         canvasContext: ctx,
-        canvas,
-        viewport,
+        canvas: null as unknown as HTMLCanvasElement,
+        viewport: renderViewport,
       });
+      renderTaskRef.current = renderTask;
 
       await renderTask.promise;
+      renderTaskRef.current = null;
       onPageRendered?.({
         width: viewport.width,
         height: viewport.height,
@@ -54,6 +65,12 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
 
   useEffect(() => {
     render();
+    return () => {
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+        renderTaskRef.current = null;
+      }
+    };
   }, [render]);
 
   return (

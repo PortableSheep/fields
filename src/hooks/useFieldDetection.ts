@@ -54,8 +54,18 @@ export function useFieldDetection() {
         }
 
         // 2. Run heuristic detection
-        const textContent = await page.getTextContent();
-        const textItems = (textContent as any).items.filter((it: any) => 'str' in it && it.str?.trim());
+        // Use streamTextContent + getReader() because WebKit (Tauri on macOS)
+        // doesn't support for-await-of on ReadableStream, which getTextContent() uses internally.
+        const stream = page.streamTextContent();
+        const reader = stream.getReader();
+        const textContent: { items: any[]; styles: Record<string, any> } = { items: [], styles: {} };
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          Object.assign(textContent.styles, value.styles);
+          textContent.items.push(...value.items);
+        }
+        const textItems = textContent.items.filter((it: any) => 'str' in it && it.str?.trim());
         const heuristicFields = detectHeuristicFields(
           textContent as any,
           viewport,
