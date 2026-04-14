@@ -14,8 +14,9 @@ const SIGNATURE_FONTS = [
   { label: 'Script', value: "'Brush Script MT', 'Segoe Script', 'Apple Chancery', cursive" },
   { label: 'Elegant', value: "'Snell Roundhand', 'Edwardian Script ITC', 'Apple Chancery', cursive" },
   { label: 'Casual', value: "'Comic Sans MS', 'Marker Felt', cursive" },
-  { label: 'Classic', value: "'Palatino', 'Book Antiqua', 'Georgia', serif" },
-  { label: 'Formal', value: "'Times New Roman', 'Garamond', serif" },
+  { label: 'Caveat', value: "'Caveat', cursive" },
+  { label: 'Dancing', value: "'Dancing Script', cursive" },
+  { label: 'Sacramento', value: "'Sacramento', cursive" },
 ];
 
 export const SignaturePad: React.FC<SignaturePadProps> = ({

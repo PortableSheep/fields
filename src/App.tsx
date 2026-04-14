@@ -35,6 +35,7 @@ function App() {
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const sigPlacementRef = useRef<{ pageIndex: number; rect: Rect } | null>(null);
   const [filePath, setFilePath] = useState<string | null>(null);
+  const pdfFingerprintRef = useRef<Uint8Array | undefined>(undefined);
   const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>([]);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
@@ -90,19 +91,21 @@ function App() {
 
       // Snapshot current state before switching files
       if (filePath && ann.annotations.length > 0) {
-        await history.addSnapshot(filePath, ann.annotations, 'Before opening another file');
+        await history.addSnapshot(filePath, ann.annotations, 'Before opening another file', pdfFingerprintRef.current);
       }
 
       const bytes = await readFile(path);
+      const uint8 = new Uint8Array(bytes);
       const name = path.split('/').pop() || path.split('\\').pop() || 'document.pdf';
-      await pdf.loadPdf(new Uint8Array(bytes), name);
+      await pdf.loadPdf(uint8, name);
       setFilePath(path);
+      pdfFingerprintRef.current = uint8.slice(0, 1024);
       fields.clearFields();
       ann.markClean();
       addRecentFile(path, name).then(() => loadRecentFiles().then(setRecentFiles));
 
       // Load history for the new file
-      await history.loadHistory(path);
+      await history.loadHistory(path, pdfFingerprintRef.current);
     } catch (err) {
       console.error('Failed to open file:', err);
     }
@@ -121,17 +124,19 @@ function App() {
       const path = typeof selected === 'string' ? selected : (selected as any).path;
       // Snapshot current state before switching files
       if (filePath && ann.annotations.length > 0) {
-        await history.addSnapshot(filePath, ann.annotations, 'Before opening another file');
+        await history.addSnapshot(filePath, ann.annotations, 'Before opening another file', pdfFingerprintRef.current);
       }
 
       const bytes = await readFile(path as string);
+      const uint8 = new Uint8Array(bytes);
       const name = (path as string).split('/').pop() || (path as string).split('\\').pop() || 'document.pdf';
-      await pdf.loadPdf(new Uint8Array(bytes), name);
+      await pdf.loadPdf(uint8, name);
       setFilePath(path as string);
+      pdfFingerprintRef.current = uint8.slice(0, 1024);
       fields.clearFields();
       ann.markClean();
       addRecentFile(path as string, name).then(() => loadRecentFiles().then(setRecentFiles));
-      await history.loadHistory(path as string);
+      await history.loadHistory(path as string, pdfFingerprintRef.current);
     } catch (err) {
       console.error('Failed to open file:', err);
     }
@@ -153,7 +158,7 @@ function App() {
 
         // Snapshot on save
         if (filePath) {
-          await history.addSnapshot(filePath, ann.annotations, 'Manual save');
+          await history.addSnapshot(filePath, ann.annotations, 'Manual save', pdfFingerprintRef.current);
         }
       } catch (err) {
         console.error('Failed to save:', err);
@@ -295,7 +300,7 @@ function App() {
 
       // Snapshot before closing
       if (filePath && ann.annotations.length > 0) {
-        await history.addSnapshot(filePath, ann.annotations, 'Before close');
+        await history.addSnapshot(filePath, ann.annotations, 'Before close', pdfFingerprintRef.current);
       }
 
       await appWindow.destroy();
@@ -310,7 +315,7 @@ function App() {
 
     if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current);
     snapshotTimerRef.current = setTimeout(() => {
-      history.addSnapshot(filePath, ann.annotations).catch(() => {});
+      history.addSnapshot(filePath, ann.annotations, undefined, pdfFingerprintRef.current).catch(() => {});
     }, 5000);
 
     return () => {
@@ -329,7 +334,7 @@ function App() {
 
   const handleClearHistory = useCallback(() => {
     if (filePath) {
-      history.clearHistory(filePath);
+      history.clearHistory(filePath, pdfFingerprintRef.current);
       showNotification('History cleared');
     }
   }, [filePath, history, showNotification]);
@@ -352,11 +357,12 @@ function App() {
       if (!(await confirmDiscardIfDirty())) return;
 
       if (filePath && ann.annotations.length > 0) {
-        await history.addSnapshot(filePath, ann.annotations, 'Before drag-drop open');
+        await history.addSnapshot(filePath, ann.annotations, 'Before drag-drop open', pdfFingerprintRef.current);
       }
 
       const bytes = new Uint8Array(await file.arrayBuffer());
       await pdf.loadPdf(bytes, file.name);
+      pdfFingerprintRef.current = bytes.slice(0, 1024);
       fields.clearFields();
       ann.markClean();
     };

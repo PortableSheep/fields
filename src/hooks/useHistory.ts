@@ -11,10 +11,10 @@ export function useHistory() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadHistory = useCallback(async (filePath: string) => {
+  const loadHistory = useCallback(async (filePath: string, contentFingerprint?: Uint8Array) => {
     setLoading(true);
     try {
-      const snaps = await loadSnapshotsFromDisk(filePath);
+      const snaps = await loadSnapshotsFromDisk(filePath, contentFingerprint);
       setSnapshots(snaps);
     } catch {
       setSnapshots([]);
@@ -24,9 +24,9 @@ export function useHistory() {
   }, []);
 
   const addSnapshot = useCallback(
-    async (filePath: string, annotations: Annotation[], label?: string) => {
+    async (filePath: string, annotations: Annotation[], label?: string, contentFingerprint?: Uint8Array) => {
       try {
-        const snap = await saveSnapshotToDisk(filePath, annotations, label);
+        const snap = await saveSnapshotToDisk(filePath, annotations, label, contentFingerprint);
         setSnapshots((prev) => {
           const updated = [...prev, snap];
           if (updated.length > 50) updated.shift();
@@ -41,8 +41,8 @@ export function useHistory() {
     []
   );
 
-  const clearHistory = useCallback(async (filePath: string) => {
-    await clearHistoryOnDisk(filePath);
+  const clearHistory = useCallback(async (filePath: string, contentFingerprint?: Uint8Array) => {
+    await clearHistoryOnDisk(filePath, contentFingerprint);
     setSnapshots([]);
   }, []);
 

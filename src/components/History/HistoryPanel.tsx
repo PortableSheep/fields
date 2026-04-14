@@ -1,4 +1,5 @@
 import React from 'react';
+import { X, RotateCcw, Trash2 } from 'lucide-react';
 import type { Snapshot } from '../../lib/history';
 
 interface HistoryPanelProps {
@@ -48,11 +49,11 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
               onClick={onClear}
               title="Clear all history"
             >
-              Clear
+              <Trash2 size={12} /> Clear
             </button>
           )}
           <button className="history-close-btn" onClick={onClose} title="Close">
-            ✕
+            <X size={14} />
           </button>
         </div>
       </div>
@@ -74,7 +75,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 onClick={() => onRestore(snap)}
                 title="Restore this snapshot"
               >
-                Restore
+                <RotateCcw size={12} /> Restore
               </button>
             </div>
           ))}

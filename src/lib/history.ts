@@ -12,13 +12,30 @@ export interface Snapshot {
   annotations: Annotation[];
 }
 
-function hashPath(filePath: string): string {
+function djb2(input: string): number {
   let hash = 0;
-  for (let i = 0; i < filePath.length; i++) {
-    const ch = filePath.charCodeAt(i);
+  for (let i = 0; i < input.length; i++) {
+    const ch = input.charCodeAt(i);
     hash = ((hash << 5) - hash + ch) | 0;
   }
-  return `h${Math.abs(hash).toString(36)}`;
+  return Math.abs(hash);
+}
+
+// Hash file path + content fingerprint (first 1KB) for robust identity.
+// Same filename in different dirs with different content → different key.
+function hashFileIdentity(filePath: string, contentFingerprint?: Uint8Array): string {
+  const pathHash = djb2(filePath);
+  if (!contentFingerprint || contentFingerprint.length === 0) {
+    return `h${pathHash.toString(36)}`;
+  }
+  // Mix in first 1KB of file content
+  let contentHash = 0;
+  const len = Math.min(contentFingerprint.length, 1024);
+  for (let i = 0; i < len; i++) {
+    contentHash = ((contentHash << 5) - contentHash + contentFingerprint[i]) | 0;
+  }
+  contentHash = Math.abs(contentHash);
+  return `h${pathHash.toString(36)}_${contentHash.toString(36)}`;
 }
 
 function summarizeAnnotations(annotations: Annotation[]): string {
@@ -43,14 +60,14 @@ async function getHistoryDir(): Promise<string> {
   return dir;
 }
 
-async function getHistoryPath(filePath: string): Promise<string> {
+async function getHistoryPath(filePath: string, contentFingerprint?: Uint8Array): Promise<string> {
   const dir = await getHistoryDir();
-  return `${dir}/${hashPath(filePath)}.json`;
+  return `${dir}/${hashFileIdentity(filePath, contentFingerprint)}.json`;
 }
 
-export async function loadSnapshots(filePath: string): Promise<Snapshot[]> {
+export async function loadSnapshots(filePath: string, contentFingerprint?: Uint8Array): Promise<Snapshot[]> {
   try {
-    const path = await getHistoryPath(filePath);
+    const path = await getHistoryPath(filePath, contentFingerprint);
     const fileExists = await exists(path);
     if (!fileExists) return [];
     const bytes = await readFile(path);
@@ -64,9 +81,10 @@ export async function loadSnapshots(filePath: string): Promise<Snapshot[]> {
 export async function saveSnapshot(
   filePath: string,
   annotations: Annotation[],
-  label?: string
+  label?: string,
+  contentFingerprint?: Uint8Array
 ): Promise<Snapshot> {
-  const snapshots = await loadSnapshots(filePath);
+  const snapshots = await loadSnapshots(filePath, contentFingerprint);
   const snapshot: Snapshot = {
     id: `snap-${Date.now()}`,
     timestamp: new Date().toISOString(),
@@ -81,15 +99,15 @@ export async function saveSnapshot(
     snapshots.shift();
   }
 
-  const path = await getHistoryPath(filePath);
+  const path = await getHistoryPath(filePath, contentFingerprint);
   await writeFile(path, new TextEncoder().encode(JSON.stringify(snapshots, null, 2)));
 
   return snapshot;
 }
 
-export async function clearHistory(filePath: string): Promise<void> {
+export async function clearHistory(filePath: string, contentFingerprint?: Uint8Array): Promise<void> {
   try {
-    const path = await getHistoryPath(filePath);
+    const path = await getHistoryPath(filePath, contentFingerprint);
     const fileExists = await exists(path);
     if (fileExists) {
       await writeFile(path, new TextEncoder().encode('[]'));

@@ -1,5 +1,22 @@
 import React from 'react';
 import type { ToolType, Annotation } from '../../types/annotations';
+import {
+  FolderOpen,
+  Save,
+  ClipboardCopy,
+  ZoomOut,
+  ZoomIn,
+  MousePointer2,
+  Type,
+  CheckSquare,
+  CalendarDays,
+  Pen,
+  ScanSearch,
+  History,
+  Undo2,
+  Redo2,
+  Trash2,
+} from 'lucide-react';
 
 interface MainToolbarProps {
   activeTool: ToolType;
@@ -49,7 +66,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
       {/* File operations */}
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={onOpenFile} title="Open PDF (Ctrl+O)">
-          📂
+          <FolderOpen size={16} />
         </button>
         <button
           className="toolbar-btn"
@@ -57,7 +74,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           disabled={!hasPdf}
           title="Save Editable (Ctrl+S)"
         >
-          💾
+          <Save size={16} />
         </button>
         <button
           className="toolbar-btn"
@@ -65,7 +82,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           disabled={!hasPdf}
           title="Save Flattened (Ctrl+Shift+S)"
         >
-          📋
+          <ClipboardCopy size={16} />
         </button>
       </div>
 
@@ -74,13 +91,13 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
       {/* Zoom */}
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={onZoomOut} disabled={!hasPdf} title="Zoom Out (-)">
-          🔍−
+          <ZoomOut size={16} />
         </button>
         <span style={{ fontSize: 12, minWidth: 45, textAlign: 'center', color: 'var(--text-secondary)' }}>
           {Math.round(scale * 100)}%
         </span>
         <button className="toolbar-btn" onClick={onZoomIn} disabled={!hasPdf} title="Zoom In (+)">
-          🔍+
+          <ZoomIn size={16} />
         </button>
       </div>
 
@@ -94,7 +111,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           disabled={!hasPdf}
           title="Select (Esc)"
         >
-          👆
+          <MousePointer2 size={16} />
         </button>
         <button
           className={`toolbar-btn ${activeTool === 'text' ? 'active' : ''}`}
@@ -102,7 +119,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           disabled={!hasPdf}
           title="Text Tool (T)"
         >
-          T
+          <Type size={16} />
         </button>
         <button
           className={`toolbar-btn ${activeTool === 'checkbox' ? 'active' : ''}`}
@@ -110,7 +127,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           disabled={!hasPdf}
           title="Checkbox Tool (C)"
         >
-          ☑
+          <CheckSquare size={16} />
         </button>
         <button
           className={`toolbar-btn ${activeTool === 'date' ? 'active' : ''}`}
@@ -118,7 +135,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           disabled={!hasPdf}
           title="Date Tool (D)"
         >
-          📅
+          <CalendarDays size={16} />
         </button>
         <button
           className={`toolbar-btn ${activeTool === 'signature' ? 'active' : ''}`}
@@ -126,7 +143,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           disabled={!hasPdf}
           title="Signature Tool (S)"
         >
-          ✍️
+          <Pen size={16} />
         </button>
       </div>
 
@@ -139,18 +156,18 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           onClick={onDetectFields}
           disabled={!hasPdf || detecting}
           title="Detect Fields"
-          style={{ fontSize: 13, width: 'auto', padding: '0 10px' }}
+          style={{ width: 'auto', padding: '0 10px', gap: 4, display: 'flex', alignItems: 'center' }}
         >
-          {detecting ? '⏳' : '🔎'} Detect
+          <ScanSearch size={14} /> Detect
         </button>
         <button
           className={`toolbar-btn ${historyOpen ? 'active' : ''}`}
           onClick={onToggleHistory}
           disabled={!hasPdf}
           title="History"
-          style={{ fontSize: 13, width: 'auto', padding: '0 10px' }}
+          style={{ width: 'auto', padding: '0 10px', gap: 4, display: 'flex', alignItems: 'center' }}
         >
-          🕒 History
+          <History size={14} /> History
         </button>
       </div>
 
@@ -159,10 +176,10 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
       {/* Edit operations */}
       <div className="toolbar-group">
         <button className="toolbar-btn" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">
-          ↩
+          <Undo2 size={16} />
         </button>
         <button className="toolbar-btn" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl+Y)">
-          ↪
+          <Redo2 size={16} />
         </button>
         <button
           className="toolbar-btn"
@@ -170,7 +187,7 @@ export const MainToolbar: React.FC<MainToolbarProps> = ({
           disabled={!selected}
           title="Delete Selected (Del)"
         >
-          🗑
+          <Trash2 size={16} />
         </button>
       </div>
 

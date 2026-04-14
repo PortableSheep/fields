@@ -81,6 +81,71 @@ export const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
       const ann = annotations.find((a) => a.id === id);
       if (!ann) return;
 
+      const target = e.target as HTMLElement;
+      const isResizeHandle = target.classList.contains('resize-handle');
+
+      if (isResizeHandle) {
+        // Determine which corner
+        const corner = target.classList.contains('nw')
+          ? 'nw'
+          : target.classList.contains('ne')
+            ? 'ne'
+            : target.classList.contains('sw')
+              ? 'sw'
+              : 'se';
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const origRect = { ...ann.rect };
+
+        const handleResizeMove = (ev: MouseEvent) => {
+          const dx = (ev.clientX - startX) / scale;
+          const dy = (ev.clientY - startY) / scale;
+
+          let newRect = { ...origRect };
+          switch (corner) {
+            case 'se':
+              newRect.width = Math.max(16, origRect.width + dx);
+              newRect.height = Math.max(16, origRect.height + dy);
+              break;
+            case 'sw':
+              newRect.x = origRect.x + dx;
+              newRect.width = Math.max(16, origRect.width - dx);
+              newRect.height = Math.max(16, origRect.height + dy);
+              break;
+            case 'ne':
+              newRect.y = origRect.y + dy;
+              newRect.width = Math.max(16, origRect.width + dx);
+              newRect.height = Math.max(16, origRect.height - dy);
+              break;
+            case 'nw':
+              newRect.x = origRect.x + dx;
+              newRect.y = origRect.y + dy;
+              newRect.width = Math.max(16, origRect.width - dx);
+              newRect.height = Math.max(16, origRect.height - dy);
+              break;
+          }
+
+          onAnnotationUpdate(id, { rect: newRect });
+        };
+
+        const handleResizeUp = () => {
+          window.removeEventListener('mousemove', handleResizeMove);
+          window.removeEventListener('mouseup', handleResizeUp);
+          // Suppress click after resize
+          const suppress = (ev: MouseEvent) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+          };
+          window.addEventListener('click', suppress, { capture: true, once: true });
+        };
+
+        window.addEventListener('mousemove', handleResizeMove);
+        window.addEventListener('mouseup', handleResizeUp);
+        return;
+      }
+
+      // Normal drag-to-move
       let didMove = false;
 
       dragStateRef.current = {
