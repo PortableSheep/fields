@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useCallback } from 'react';
 import type { DateAnnotation as DateAnnotationType } from '../../types/annotations';
 
 interface DateAnnotationProps {
@@ -33,15 +33,17 @@ export const DateAnnotation: React.FC<DateAnnotationProps> = ({
   onMouseDown,
   onUpdate,
 }) => {
-  const [showPicker, setShowPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (showPicker && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.showPicker?.();
-    }
-  }, [showPicker]);
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Open the native date picker
+    inputRef.current?.showPicker?.();
+  }, []);
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdate({ value: e.target.value });
+  }, [onUpdate]);
 
   const displayValue = formatDateDisplay(annotation.value, annotation.format);
 
@@ -52,38 +54,25 @@ export const DateAnnotation: React.FC<DateAnnotationProps> = ({
       onMouseDown={onMouseDown}
     >
       <div
+        className="date-annotation-display"
         style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '2px 4px',
           fontSize: annotation.fontSize * scale,
           fontFamily: annotation.fontFamily,
           color: annotation.color,
-          cursor: 'pointer',
         }}
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowPicker(true);
-        }}
+        onClick={handleClick}
       >
         {displayValue || 'Click to set date'}
       </div>
-      {showPicker && (
-        <div className="date-picker-popover" onClick={(e) => e.stopPropagation()}>
-          <input
-            ref={inputRef}
-            type="date"
-            value={annotation.value}
-            onChange={(e) => {
-              onUpdate({ value: e.target.value });
-              setShowPicker(false);
-            }}
-            onBlur={() => setTimeout(() => setShowPicker(false), 200)}
-          />
-        </div>
-      )}
+      {/* Hidden native date input — always in DOM to avoid mount/unmount crashes */}
+      <input
+        ref={inputRef}
+        type="date"
+        className="date-annotation-input"
+        value={annotation.value}
+        onChange={handleChange}
+        onClick={(e) => e.stopPropagation()}
+      />
       {isSelected && (
         <>
           <div className="resize-handle nw" />

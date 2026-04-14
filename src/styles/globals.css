@@ -522,6 +522,25 @@ html, body, #root {
 }
 
 /* Date picker styling */
+.date-annotation-display {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.date-annotation-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  /* Force light color scheme so the native picker is always readable */
+  color-scheme: light;
+}
+
 .date-picker-popover {
   position: absolute;
   z-index: 500;
@@ -539,6 +558,7 @@ html, body, #root {
   border-radius: 4px;
   padding: 4px 8px;
   font-size: 14px;
+  color-scheme: light;
 }
 
 /* Style controls */
