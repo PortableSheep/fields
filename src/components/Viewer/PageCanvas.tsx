@@ -24,28 +24,26 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
 
     try {
       const page = await pdfDoc.getPage(pageNumber);
-      const dpr = window.devicePixelRatio || 1;
-      const viewport = page.getViewport({ scale: scale * dpr });
-      const displayViewport = page.getViewport({ scale });
+      const viewport = page.getViewport({ scale });
 
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      canvas.style.width = `${displayViewport.width}px`;
-      canvas.style.height = `${displayViewport.height}px`;
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
       const renderTask = page.render({
         canvasContext: ctx,
-        canvas: null as unknown as HTMLCanvasElement,
+        canvas,
         viewport,
       });
 
       await renderTask.promise;
       onPageRendered?.({
-        width: displayViewport.width,
-        height: displayViewport.height,
+        width: viewport.width,
+        height: viewport.height,
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== 'RenderingCancelledException') {
