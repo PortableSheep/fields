@@ -139,25 +139,30 @@ html, body, #root {
 
 .thumbnail {
   cursor: pointer;
-  border: 2px solid transparent;
+  border: 2px solid var(--border-color);
   border-radius: 4px;
   margin-bottom: 8px;
   overflow: hidden;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
 .thumbnail:hover {
-  border-color: var(--bg-hover);
+  border-color: var(--text-muted);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 .thumbnail.active {
   border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 .thumbnail canvas {
   width: 100%;
   height: auto;
   display: block;
+  background: white;
 }
 
 .thumbnail-label {
@@ -165,6 +170,7 @@ html, body, #root {
   font-size: 11px;
   color: var(--text-muted);
   padding: 2px 0;
+  background: var(--bg-secondary);
 }
 
 /* Viewer */
@@ -473,4 +479,27 @@ html, body, #root {
   padding: 2px;
   cursor: pointer;
   background: var(--bg-surface);
+}
+
+/* Notification toast */
+.notification-toast {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 9999;
+  animation: toast-in 0.25s ease-out;
+  pointer-events: none;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }

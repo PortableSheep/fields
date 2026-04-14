@@ -32,6 +32,14 @@ function App() {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>([]);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
+  const [notification, setNotification] = useState<string | null>(null);
+  const notifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showNotification = useCallback((msg: string, durationMs = 4000) => {
+    if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
+    setNotification(msg);
+    notifTimerRef.current = setTimeout(() => setNotification(null), durationMs);
+  }, []);
 
   // Load saved data on mount
   useEffect(() => {
@@ -88,9 +96,14 @@ function App() {
 
   const handleDetectFields = useCallback(async () => {
     if (pdf.pdfDoc) {
-      await fields.detectFields(pdf.pdfDoc);
+      const count = await fields.detectFields(pdf.pdfDoc);
+      if (count > 0) {
+        showNotification(`Found ${count} field${count !== 1 ? 's' : ''}. Click to accept, right-click to dismiss.`);
+      } else {
+        showNotification('No fields detected in this PDF.');
+      }
     }
-  }, [pdf.pdfDoc, fields]);
+  }, [pdf.pdfDoc, fields, showNotification]);
 
   const handleAnnotationAdd = useCallback(
     (type: Exclude<ToolType, 'select' | null>, pageIndex: number, rect: Rect) => {
@@ -288,6 +301,10 @@ function App() {
           savedSignatures={savedSignatures}
           onDeleteSaved={handleDeleteSavedSignature}
         />
+      )}
+
+      {notification && (
+        <div className="notification-toast">{notification}</div>
       )}
     </div>
   );

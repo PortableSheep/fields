@@ -7,7 +7,7 @@ export function useFieldDetection() {
   const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
   const [detecting, setDetecting] = useState(false);
 
-  const detectFields = useCallback(async (pdfDoc: PDFDocumentProxy) => {
+  const detectFields = useCallback(async (pdfDoc: PDFDocumentProxy): Promise<number> => {
     setDetecting(true);
     const fields: DetectedField[] = [];
     let fieldId = 0;
@@ -66,6 +66,7 @@ export function useFieldDetection() {
 
     setDetectedFields(fields);
     setDetecting(false);
+    return fields.length;
   }, []);
 
   const acceptField = useCallback((fieldId: string) => {
