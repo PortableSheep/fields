@@ -29,14 +29,17 @@ const LABEL_PATTERNS = [
   { pattern: /\b(amount|total|balance|payment|price|cost|fee)\b/i, type: 'text' as const },
   { pattern: /\b(description|reason|comment|notes|remarks|explain)\b/i, type: 'text' as const },
   { pattern: /\b(yes|no)\s*$/i, type: 'checkbox' as const },
-  { pattern: /^\s*\[\s*\]\s*/i, type: 'checkbox' as const },
 ];
 
-// Patterns that indicate a fill-in line
 const FILL_LINE_PATTERN = /[_]{3,}|[\.]{5,}|[-]{5,}/;
-
-// A label followed by a colon (or similar) and then mostly whitespace/blanks
 const LABEL_COLON_PATTERN = /^(.{2,30})\s*[:]\s*$/;
+
+// Standalone bracket/box checkbox characters
+const BRACKET_CHECKBOX_PATTERN = /^[\(\[]\s*[\)\]]$|^☐$|^□$|^◻$|^◯$/;
+// Inline bracket checkboxes embedded in text
+const INLINE_CHECKBOX_PATTERN = /[\(\[]\s*[\)\]]|☐|□|◻|◯/g;
+// "Check here" / "mark with an X" action text
+const ACTION_MARK_PATTERN = /\b(check\s*(here|one|all|box|if|the)|mark\s*(here|one|all|with\s*an?\s*x|the)|place\s*an?\s*x|circle\s*(one|yes|no)|x\s+here)\b/i;
 
 function isTextItem(item: TextItem | { type?: string }): item is TextItem {
   return 'str' in item && 'transform' in item;
@@ -49,6 +52,17 @@ function inferFieldType(label: string): DetectedField['fieldType'] {
   return 'text';
 }
 
+function isSameLine(a: TextItem, b: TextItem): boolean {
+  const aFontSize = Math.sqrt(a.transform[1] ** 2 + a.transform[3] ** 2);
+  return Math.abs(a.transform[5] - b.transform[5]) < aFontSize * 0.5;
+}
+
+function isLineBelow(a: TextItem, b: TextItem, tolerance = 2.5): boolean {
+  const aFontSize = Math.sqrt(a.transform[1] ** 2 + a.transform[3] ** 2);
+  const gap = a.transform[5] - b.transform[5]; // PDF y: up is positive
+  return gap > 0 && gap < aFontSize * tolerance;
+}
+
 export function detectHeuristicFields(
   textContent: TextContentLike,
   viewport: PageViewport,
@@ -58,6 +72,16 @@ export function detectHeuristicFields(
   const fields: DetectedField[] = [];
   let fieldId = startId;
   const items = textContent.items.filter(isTextItem);
+  const usedPositions = new Set<string>();
+
+  const posKey = (px: number, py: number) => `${Math.round(px)},${Math.round(py)}`;
+
+  const addField = (f: Omit<DetectedField, 'id'>) => {
+    const key = posKey(f.rect.x, f.rect.y);
+    if (usedPositions.has(key)) return;
+    usedPositions.add(key);
+    fields.push({ ...f, id: `field-${fieldId++}` });
+  };
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -66,15 +90,13 @@ export function detectHeuristicFields(
     const text = item.str.trim();
     const [, b, , d, tx, ty] = item.transform;
 
-    // Convert PDF coords to screen coords
     const x = tx;
     const y = viewport.height - ty;
     const fontSize = Math.sqrt(b * b + d * d);
     const textWidth = item.width;
 
-    // Check for fill lines (underscores, dots, dashes)
+    // --- 1. Fill lines (underscores, dots, dashes) ---
     if (FILL_LINE_PATTERN.test(text)) {
-      // Look back for a label
       let label = 'Field';
       for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
         const prevItem = items[j];
@@ -84,19 +106,11 @@ export function detectHeuristicFields(
         }
       }
 
-      const fieldType = inferFieldType(label);
-
-      fields.push({
-        id: `field-${fieldId++}`,
+      addField({
         pageIndex,
-        rect: {
-          x,
-          y: y - fontSize,
-          width: Math.max(textWidth, 150),
-          height: fontSize + 6,
-        },
+        rect: { x, y: y - fontSize, width: Math.max(textWidth, 150), height: fontSize + 6 },
         label,
-        fieldType,
+        fieldType: inferFieldType(label),
         confidence: 0.8,
         source: 'heuristic',
         accepted: false,
@@ -104,7 +118,69 @@ export function detectHeuristicFields(
       continue;
     }
 
-    // Check for "Label:" pattern (colon-terminated labels with space after)
+    // --- 2. Standalone bracket/box checkbox: ( ), [ ], ☐, □ ---
+    if (BRACKET_CHECKBOX_PATTERN.test(text)) {
+      let label = 'Checkbox';
+      for (const offset of [1, -1, 2, -2]) {
+        const neighbor = items[i + offset];
+        if (neighbor?.str?.trim() && !BRACKET_CHECKBOX_PATTERN.test(neighbor.str.trim())) {
+          label = neighbor.str.trim().replace(/[:.]?\s*$/, '');
+          break;
+        }
+      }
+
+      addField({
+        pageIndex,
+        rect: { x, y: y - fontSize, width: fontSize + 4, height: fontSize + 4 },
+        label,
+        fieldType: 'checkbox',
+        confidence: 0.75,
+        source: 'heuristic',
+        accepted: false,
+      });
+      continue;
+    }
+
+    // --- 3. Inline bracket checkboxes: "Yes ( )  No ( )" ---
+    if (INLINE_CHECKBOX_PATTERN.test(text) && text.length > 3) {
+      // Reset lastIndex after the test
+      INLINE_CHECKBOX_PATTERN.lastIndex = 0;
+      const matches = [...text.matchAll(INLINE_CHECKBOX_PATTERN)];
+      for (const match of matches) {
+        if (match.index === undefined) continue;
+        const charRatio = match.index / text.length;
+        const matchX = x + textWidth * charRatio;
+        const before = text.slice(0, match.index).trim();
+        const labelWord = before.split(/\s+/).pop() || 'Option';
+
+        addField({
+          pageIndex,
+          rect: { x: matchX, y: y - fontSize, width: fontSize + 4, height: fontSize + 4 },
+          label: labelWord,
+          fieldType: 'checkbox',
+          confidence: 0.7,
+          source: 'heuristic',
+          accepted: false,
+        });
+      }
+      continue;
+    }
+
+    // --- 4. "Check here" / "mark with an X" action patterns ---
+    if (ACTION_MARK_PATTERN.test(text)) {
+      addField({
+        pageIndex,
+        rect: { x: Math.max(0, x - fontSize - 4), y: y - fontSize, width: fontSize + 4, height: fontSize + 4 },
+        label: text.replace(/[:.]?\s*$/, ''),
+        fieldType: 'checkbox',
+        confidence: 0.75,
+        source: 'heuristic',
+        accepted: false,
+      });
+      continue;
+    }
+
+    // --- 5. "Label:" colon-terminated labels ---
     const colonMatch = text.match(LABEL_COLON_PATTERN);
     if (colonMatch) {
       const label = colonMatch[1].trim();
@@ -113,15 +189,9 @@ export function detectHeuristicFields(
       const fieldWidth = Math.min(200, viewport.width - fieldX - 20);
 
       if (fieldWidth > 50) {
-        fields.push({
-          id: `field-${fieldId++}`,
+        addField({
           pageIndex,
-          rect: {
-            x: fieldX,
-            y: y - fontSize,
-            width: fieldWidth,
-            height: fontSize + 6,
-          },
+          rect: { x: fieldX, y: y - fontSize, width: fieldWidth, height: fontSize + 6 },
           label,
           fieldType,
           confidence: 0.7,
@@ -132,22 +202,16 @@ export function detectHeuristicFields(
       continue;
     }
 
-    // Check for known label patterns followed by whitespace/blank area
+    // --- 6. Known label with blank space to the right ---
     for (const { pattern, type } of LABEL_PATTERNS) {
       if (pattern.test(text)) {
         const fieldX = x + textWidth + 5;
         const fieldWidth = Math.min(200, viewport.width - fieldX - 20);
 
         if (fieldWidth > 50) {
-          fields.push({
-            id: `field-${fieldId++}`,
+          addField({
             pageIndex,
-            rect: {
-              x: fieldX,
-              y: y - fontSize,
-              width: fieldWidth,
-              height: fontSize + 6,
-            },
+            rect: { x: fieldX, y: y - fontSize, width: fieldWidth, height: fontSize + 6 },
             label: text.replace(/[:.]?\s*$/, ''),
             fieldType: type,
             confidence: 0.6,
@@ -156,6 +220,28 @@ export function detectHeuristicFields(
           });
         }
         break;
+      }
+    }
+
+    // --- 7. Label on this line with blank space below (stacked layout) ---
+    if (LABEL_PATTERNS.some(({ pattern }) => pattern.test(text))) {
+      const nextNonEmpty = items.slice(i + 1).find((it) => it.str?.trim());
+      if (nextNonEmpty) {
+        const onSame = isSameLine(item, nextNonEmpty);
+        const justBelow = isLineBelow(item, nextNonEmpty);
+        // If next text is far below (gap > normal line spacing), there's blank fill space
+        if (!onSame && !justBelow) {
+          const belowY = y + fontSize * 0.5;
+          addField({
+            pageIndex,
+            rect: { x, y: belowY, width: Math.max(textWidth, 200), height: fontSize + 6 },
+            label: text.replace(/[:.]?\s*$/, ''),
+            fieldType: inferFieldType(text),
+            confidence: 0.55,
+            source: 'heuristic',
+            accepted: false,
+          });
+        }
       }
     }
   }
