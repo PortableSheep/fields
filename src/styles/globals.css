@@ -158,11 +158,17 @@ html, body, #root {
   box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
-.thumbnail canvas {
+.thumbnail img {
   display: block;
   max-width: 100%;
   height: auto;
   background: white;
+}
+
+.thumbnail-placeholder {
+  width: 100%;
+  aspect-ratio: 8.5 / 11;
+  background: var(--bg-surface);
 }
 
 .thumbnail-label {

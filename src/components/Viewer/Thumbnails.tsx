@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 interface ThumbnailsProps {
@@ -17,40 +17,44 @@ export const Thumbnails: React.FC<ThumbnailsProps> = ({
   onPageSelect,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [rendered, setRendered] = useState<Set<number>>(new Set());
+  const [thumbUrls, setThumbUrls] = useState<Map<number, string>>(new Map());
 
-  const renderThumbnail = useCallback(
-    async (pageNum: number, canvas: HTMLCanvasElement) => {
-      if (rendered.has(pageNum)) return;
-      try {
-        const page = await pdfDoc.getPage(pageNum);
-        const viewport = page.getViewport({ scale: THUMB_SCALE });
-
-        // Skip DPR scaling for thumbnails — they're small, quality is fine at 1×
-        canvas.width = Math.floor(viewport.width);
-        canvas.height = Math.floor(viewport.height);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        await page.render({
-          canvasContext: ctx,
-          canvas: null as unknown as HTMLCanvasElement,
-          viewport,
-        }).promise;
-        setRendered((prev) => new Set(prev).add(pageNum));
-      } catch (err) {
-        console.error(`Thumbnail render error page ${pageNum}:`, err);
-      }
-    },
-    [pdfDoc, rendered]
-  );
-
+  // Render all thumbnails to offscreen canvases, then convert to data URLs.
+  // This avoids canvas: null quirks and React ref-callback race conditions.
   useEffect(() => {
-    setRendered(new Set());
-  }, [pdfDoc]);
+    let cancelled = false;
+    setThumbUrls(new Map());
+
+    const renderAll = async () => {
+      for (let i = 1; i <= totalPages; i++) {
+        if (cancelled) break;
+        try {
+          const page = await pdfDoc.getPage(i);
+          const viewport = page.getViewport({ scale: THUMB_SCALE });
+          const offscreen = document.createElement('canvas');
+          offscreen.width = Math.floor(viewport.width);
+          offscreen.height = Math.floor(viewport.height);
+          const ctx = offscreen.getContext('2d');
+          if (!ctx) continue;
+
+          await page.render({
+            canvasContext: ctx,
+            canvas: offscreen,
+            viewport,
+          }).promise;
+
+          if (cancelled) break;
+          const url = offscreen.toDataURL();
+          setThumbUrls((prev) => new Map(prev).set(i, url));
+        } catch (err) {
+          console.error(`Thumbnail render error page ${i}:`, err);
+        }
+      }
+    };
+
+    renderAll();
+    return () => { cancelled = true; };
+  }, [pdfDoc, totalPages]);
 
   return (
     <div className="sidebar" ref={containerRef}>
@@ -60,13 +64,15 @@ export const Thumbnails: React.FC<ThumbnailsProps> = ({
           className={`thumbnail ${currentPage === pageNum ? 'active' : ''}`}
           onClick={() => onPageSelect(pageNum)}
         >
-          <canvas
-            ref={(el) => {
-              if (el && !rendered.has(pageNum)) {
-                renderThumbnail(pageNum, el);
-              }
-            }}
-          />
+          {thumbUrls.has(pageNum) ? (
+            <img
+              src={thumbUrls.get(pageNum)}
+              alt={`Page ${pageNum}`}
+              draggable={false}
+            />
+          ) : (
+            <div className="thumbnail-placeholder" />
+          )}
           <div className="thumbnail-label">{pageNum}</div>
         </div>
       ))}
