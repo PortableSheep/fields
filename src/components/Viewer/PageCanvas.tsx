@@ -33,32 +33,32 @@ export const PageCanvas: React.FC<PageCanvasProps> = ({
       const page = await pdfDoc.getPage(pageNumber);
       const dpr = window.devicePixelRatio || 1;
       const viewport = page.getViewport({ scale });
-      const renderViewport = page.getViewport({ scale: scale * dpr });
 
-      canvas.width = renderViewport.width;
-      canvas.height = renderViewport.height;
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
+      // Size canvas buffer at DPR resolution, display at CSS size
+      canvas.width = Math.floor(viewport.width * dpr);
+      canvas.height = Math.floor(viewport.height * dpr);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Reset any lingering transform state before rendering
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Use transform parameter for DPR scaling (canonical pdf.js approach)
+      const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
 
       const renderTask = page.render({
         canvasContext: ctx,
         canvas: null as unknown as HTMLCanvasElement,
-        viewport: renderViewport,
+        viewport,
+        transform,
       });
       renderTaskRef.current = renderTask;
 
       await renderTask.promise;
       renderTaskRef.current = null;
       onPageRendered?.({
-        width: viewport.width,
-        height: viewport.height,
+        width: Math.floor(viewport.width),
+        height: Math.floor(viewport.height),
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== 'RenderingCancelledException') {

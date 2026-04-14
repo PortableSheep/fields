@@ -169,8 +169,13 @@ function App() {
           ann.deleteSelected();
         }
       } else if (e.key === 'Escape') {
-        setActiveTool(null);
-        ann.setSelectedId(null);
+        if (ann.selectedId) {
+          // First ESC: deselect the annotation, keep current tool
+          ann.setSelectedId(null);
+        } else if (activeTool && activeTool !== 'select') {
+          // Second ESC: switch back to pointer mode
+          setActiveTool(null);
+        }
       } else if (e.key === 't' && !isMod && document.activeElement === document.body) {
         setActiveTool('text');
       } else if (e.key === 'c' && !isMod && document.activeElement === document.body) {
@@ -188,7 +193,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleOpenFile, handleSave, ann, pdf]);
+  }, [handleOpenFile, handleSave, ann, pdf, activeTool]);
 
   // Drag and drop
   useEffect(() => {
