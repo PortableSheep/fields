@@ -590,6 +590,25 @@ html, body, #root {
 }
 
 /* Notification toast */
+.update-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--accent-color, #0066cc);
+  color: #fff;
+  text-align: center;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  z-index: 10000;
+}
+
+.update-banner:hover {
+  filter: brightness(1.15);
+}
+
 .notification-toast {
   position: fixed;
   bottom: 48px;

@@ -7,6 +7,7 @@ import { useAnnotations } from './hooks/useAnnotations';
 import { useFieldDetection } from './hooks/useFieldDetection';
 import { useHistory } from './hooks/useHistory';
 import { savePdf } from './lib/pdf-saver';
+import { checkForUpdates, installUpdate } from './lib/updater';
 import {
   loadSavedSignatures,
   saveSignature,
@@ -43,6 +44,9 @@ function App() {
   const [showHistory, setShowHistory] = useState(false);
   const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null);
+  const [updating, setUpdating] = useState(false);
+
   const showNotification = useCallback((msg: string, durationMs = 4000) => {
     if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
     setNotification(msg);
@@ -54,6 +58,30 @@ function App() {
     loadSavedSignatures().then(setSavedSignatures).catch(() => {});
     loadRecentFiles().then(setRecentFiles).catch(() => {});
   }, []);
+
+  // Check for updates on mount
+  useEffect(() => {
+    checkForUpdates().then((result) => {
+      if (result.available && result.version) {
+        setUpdateAvailable(result.version);
+        showNotification(`Update v${result.version} available! Click the update banner to install.`, 10000);
+      }
+    });
+  }, [showNotification]);
+
+  const handleInstallUpdate = useCallback(async () => {
+    if (updating) return;
+    setUpdating(true);
+    try {
+      await installUpdate((percent) => {
+        showNotification(`Downloading update... ${percent}%`, 30000);
+      });
+    } catch (err) {
+      console.error('Update failed:', err);
+      showNotification('Update failed. Please try again later.');
+      setUpdating(false);
+    }
+  }, [updating, showNotification]);
 
   // Dirty check — returns true if safe to proceed, false if user cancelled
   const confirmDiscardIfDirty = useCallback(async (): Promise<boolean> => {
@@ -181,6 +209,11 @@ function App() {
   const handleAnnotationAdd = useCallback(
     (type: Exclude<ToolType, 'select' | null>, pageIndex: number, rect: Rect) => {
       ann.addAnnotation(type as AnnotationType, pageIndex, rect);
+      // Date is one-shot: revert to select so the calendar can be dismissed
+      // without accidentally placing another date annotation.
+      if (type === 'date') {
+        setActiveTool('select');
+      }
     },
     [ann]
   );
@@ -487,6 +520,14 @@ function App() {
           savedSignatures={savedSignatures}
           onDeleteSaved={handleDeleteSavedSignature}
         />
+      )}
+
+      {updateAvailable && (
+        <div className="update-banner" onClick={handleInstallUpdate}>
+          {updating
+            ? 'Installing update…'
+            : `Update v${updateAvailable} available — click to install`}
+        </div>
       )}
 
       {notification && (
