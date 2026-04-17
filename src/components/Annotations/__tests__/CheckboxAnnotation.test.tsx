@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { CheckboxAnnotation } from '../CheckboxAnnotation';
 import type { CheckboxAnnotation as CheckboxAnnotationType } from '../../../types/annotations';
 
