@@ -43,7 +43,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "UPDATER_PUBKEY_PLACEHOLDER",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2REQ3NTRCODhBOTBGRjAKUldUd0Q2bUlTM1hkWnJtQ1lxMWZ6N2pYWmMvTThTZG9aSkxUUjkyNFRGMm9IcmFGeUx4VDNFRXcK",
       "endpoints": [
         "https://github.com/portablesheep/fields/releases/latest/download/latest.json"
       ],
